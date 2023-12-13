@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agregar y Filtrar Notas</title>
+    <script src="https://unpkg.com/vue@3"></script>
+    <style>
+        body {
+            background-color: black;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .contenedor {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #333;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .fondo-negro h1 {
+            color: white;
+        }
+
+        .formulario, .contenedor-tareas {
+            margin-top: 20px;
+        }
+
+        .lista-tareas {
+            list-style: none;
+            padding: 0;
+        }
+
+        .item-tarea {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #444;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .item-tarea:hover {
+            background-color: #555;
+        }
+
+        .prioridad-baja {
+            color: #66ff66;
+        }
+
+        .prioridad-normal {
+            color: #ffcc00;
+        }
+
+        .prioridad-alta {
+            color: #ff6666;
+        }
+
+        .eliminar {
+            background-color: #ff6666;
+            border: none;
+            color: white;
+            cursor: pointer;
+        }
+
+        .eliminar:hover {
+            background-color: #ff3333;
+        }
+
+        .boton {
+            background-color: #666;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        .boton:hover {
+            background-color: #555;
+        }
+
+        .selector-prioridad {
+            display: flex;
+            align-items: center;
+        }
+
+        .selector-prioridad select {
+            display: none;
+        }
+
+        .selector-prioridad .prioridad-option {
+            padding: 5px;
+            font-size: 14px;
+            border: 1px solid #666;
+            background-color: #555;
+            color: white;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+
+        .selector-prioridad .prioridad-option:hover {
+            background-color: #444;
+        }
+
+        .completada {
+            text-decoration: line-through;
+            color: #66ff66;
+        }
+
+        .fade-enter-active, .fade-leave-active {
+            transition: opacity 0.5s;
+        }
+
+        .fade-enter, .fade-leave-to {
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="fondo-negro">
+            <div class="contenedor">
+                <h1>Agregar y Filtrar Notas</h1>
+                <form @submit.prevent="agregarNota" class="formulario">
+                    <label>
+                        Nuevo Texto:
+                        <input type="text" v-model="nuevaNota.texto" @keyup.enter="agregarNota" class="entrada-texto">
+                    </label>
+
+                    <button type="submit" class="boton">Agregar</button>
+                </form>
+
+                <div class="contenedor-tareas">
+                    <p class="contador-tareas">Notas Pendientes: {{ notasPendientes }} / Total Notas: {{ listaNotas.length }}</p>
+                    <transition-group name="fade">
+                        <ul class="lista-tareas">
+                            <li v-for="(nota, index) in notasOrdenadas" :key="index" :class="{ 'item-tarea': true, 'completada': nota.completada }">
+                                <span class="marca" @click="toggleCompletada(index)">&#10003;</span>
+                                <span class="contenido" :class="{ 'completada': nota.completada }">{{ nota.texto }}</span>
+                                - Prioridad:
+                                <span :class="['prioridad', prioridadColor(nota.prioridad)]">{{ nota.prioridad }}</span>
+                                <div class="selector-prioridad">
+                                    <div class="prioridad-option" v-for="opcion in ['Baja', 'Normal', 'Alta']" :key="opcion" @click="cambiarPrioridad(index, opcion)" :class="{ 'prioridad-option-selected': nota.prioridad === opcion }">{{ opcion }}</div>
+                                </div>
+                                <button @click="eliminarNota(index)" class="boton eliminar">&#10008;</button>
+                            </li>
+                        </ul>
+                    </transition-group>
+
+                    <button @click="borrarNotasCompletadas" class="boton">Borrar Notas Completadas</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const app = Vue.createApp({
+            data() {
+                return {
+                    listaNotas: JSON.parse(localStorage.getItem('listaNotas')) || [],
+                    nuevaNota: { texto: "", prioridad: "Normal", completada: false },
+                    filtrar: false,
+                    filtro: "",
+                };
+            },
+            computed: {
+                notasPendientes() {
+                    return this.listaNotas.filter(nota => !nota.completada).length;
+                },
+                notasOrdenadas() {
+                    return this.listaNotas.slice().sort((a, b) => {
+                        const prioridades = { 'Baja': 0, 'Normal': 1, 'Alta': 2 };
+                        return prioridades[b.prioridad] - prioridades[a.prioridad];
+                    });
+                },
+            },
+            methods: {
+                agregarNota() {
+                    if (this.nuevaNota.texto.trim() !== "") {
+                        this.listaNotas.push({
+                            id: this.listaNotas.length + 1,
+                            texto: this.nuevaNota.texto.trim(),
+                            prioridad: this.nuevaNota.prioridad,
+                            completada: false,
+                        });
+
+                        this.nuevaNota.texto = "";
+                        this.nuevaNota.prioridad = "Normal"; 
+                        localStorage.setItem('listaNotas', JSON.stringify(this.listaNotas));
+                    }
+                },
+                toggleCompletada(index) {
+                    this.listaNotas[index].completada = !this.listaNotas[index].completada;
+                    localStorage.setItem('listaNotas', JSON.stringify(this.listaNotas));
+                },
+                cambiarPrioridad(index, nuevaPrioridad) {
+                    this.listaNotas[index].prioridad = nuevaPrioridad;
+                    localStorage.setItem('listaNotas', JSON.stringify(this.listaNotas));
+                },
+                eliminarNota(index) {
+                    this.listaNotas.splice(index, 1);
+                    localStorage.setItem('listaNotas', JSON.stringify(this.listaNotas));
+                },
+                borrarNotasCompletadas() {
+                    this.listaNotas = this.listaNotas.filter(nota => !nota.completada);
+                    localStorage.setItem('listaNotas', JSON.stringify(this.listaNotas));
+                },
+                prioridadColor(prioridad) {
+                    switch (prioridad) {
+                        case 'Baja':
+                            return 'prioridad-baja';
+                        case 'Normal':
+                            return 'prioridad-normal';
+                        case 'Alta':
+                            return 'prioridad-alta';
+                        default:
+                            return '';
+                    }
+                },
+            },
+        });
+
+        app.mount('#app');
+    </script>
+</body>
+</html>
